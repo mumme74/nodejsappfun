@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="sv">
+    <head>
+        <title>RobotArm</title>
+        <meta charset="UTF-8">
+        <script type="text/javascript">
+        
+        // gemensam sänd function för Serial bluetooth eller USB
+        async function send(key, value) {
+            const writer = outputStream.getWriter();
+            writer.write(key + value + '\n');
+            writer.releaseLock();
+        }
+            
+        async function init() {
+            if ("serial" in navigator) {
+                // fråga användare om vilken serieport, ställ in baudrate etc.
+                const port = await navigator.serial.requestPort();
+                await port.open({baudRate: 9600});//115200});
+                //const wrSerial = port.writable.getWriter();
+                
+                const encoder = new TextEncoderStream();
+                outputDone = encoder.readable.pipeTo(port.writable);
+                outputStream = encoder.writable;
+                
+                
+                // koppla upp de 4 st sliders till sändfunktionen
+                let sL = document.querySelector("#axisL");
+                sL.addEventListener("input", ()=>{send('L', sL.value);});
+                let sU = document.querySelector("#axisU");
+                sU.addEventListener("input", ()=>{send('U', sU.value);});
+                let sS = document.querySelector("#axisS");
+                sS.addEventListener("input", ()=>{send('S', sS.value);});
+                let sG = document.querySelector("#axisG");
+                sG.addEventListener("input", ()=>{send('G', sG.value);});
+            } else
+                alert("Web Serial är inte aktiverat. Måste aktiveras först");
+        };
+        </script>
+        <style>
+            #robot > img {
+                width: 800px;
+                position: absolute;
+                z-index: 0;
+            }
+            #robot > input {position: absolute; width: 150px; }
+            #axisL {left: 270px; top: 80px;}
+            #axisU {left: 160px; top: 140px; transform: rotate(270deg);}
+            #axisS {left: 210px; top:500px; transform: rotate(260deg);}
+            #axisG {left: 10px; top: 270px; transform: rotate(280deg);}
+            #info {
+                position: fixed;
+                opacity:0.5;
+                text-align: center;
+                background-color: yellow;
+                width:100%;
+                color:blue;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="info"></div>
+        <h1>Fjärrstyr robotarm med webbsida</h1>
+        <input type="button" value="init" onclick="init()"/>
+        <div id="robot">
+            <img src="robot.png"/>
+            <input type="range" min="0" max="180" value="90" id="axisL"/>
+            <input type="range" min="0" max="180" value="90" id="axisU"/>
+            <input type="range" min="0" max="180" value="90" id="axisS"/>
+            <input type="range" min="0" max="180" value="90" id="axisG"/>
+        </div>
+        <script type="text/javascript">
+            // koppla upp de 4 st sliders
+            let sliderL = document.querySelector("#axisL");
+            let sliderU = document.querySelector("#axisU");
+            let sliderS = document.querySelector("#axisS");
+            let sliderG = document.querySelector("#axisG");
+        
+            // namn på användaren
+            var myname = location.hash.substring(1);
+            if (!myname) {
+                myname = prompt("Ditt namn?");
+                location.hash = myname;
+            }
+                
+            // sätta upp websocket connection
+            let prot = 'ws:'
+            if (location.protocol === "https:")
+                prot = 'wss:'
+            var ws = new WebSocket(prot + '//' + location.hostname + ':' + location.port + '/robotarm/');
+            showMsg("Försöker kontakta servern:" + ws.url);
+            
+            // sänd namnet när vi fått kontakt med servern
+            ws.onopen = (e) => {
+                ws.send(JSON.stringify({name: myname}));
+                showMsg("Kontakt med server")
+            }
+            ws.onclose = (e) => {showMsg("Kontakt bruten med server")}
+            
+            // ta emot ändringar från andra klienter
+            ws.onmessage = (e) => {
+                var json = JSON.parse(e.data);
+                showMsg(json.name + " styr just nu.")
+                
+                if (!isNaN(json.axisL))
+                    sliderL.value = json.axisL;
+                if (!isNaN(json.axisU))
+                    sliderU.value = json.axisU;
+                if (!isNaN(json.axisS))
+                    sliderS.value = json.axisS;
+                if (!isNaN(json.axisG))
+                    sliderG.value = json.axisG;
+            }
+            
+            
+            // om denna klient ändrar värderna på sliders
+            sliderL.addEventListener("input", ()=>{
+                ws.send(JSON.stringify({axisL: axisL.value}));
+                
+            });
+            sliderU.addEventListener("input", ()=>{
+                ws.send(JSON.stringify({ axisU: axisU.value }));
+            });
+            sliderS.addEventListener("input", ()=>{
+                ws.send(JSON.stringify({axisS: axisS.value}));
+            });
+            sliderG.addEventListener("input", ()=>{
+                ws.send(JSON.stringify({axisG: axisG.value}));
+            });
+        
+            
+            // info banner
+            function showMsg(msgStr) {
+                clearInterval(showMsg.t);
+                let n = document.querySelector("#info");
+                n.innerHTML = msgStr;
+                n.style.opacity = 1;
+                showMsg.t = setInterval(()=>{
+                    n.style.opacity -= 0.05;
+                    if (n.style.opacity <= 0.0)
+                        clearInterval(showMsg.t);
+                }, 200);
+            }
+            
+            
+        </script>
+    </body>
+</html>
+

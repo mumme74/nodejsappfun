@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="sv">
+    <head>
+        <title>Remotecar</title>
+        <meta charset="UTF-8">
+        <style>
+            #robot > img {
+                width: 800px;
+                position: absolute;
+                z-index: 0;
+            }
+            #robot > input {position: absolute; width: 150px; }
+            #speed {left: 270px; top: 80px;}
+            #dir {left: 160px; top: 140px; transform: rotate(270deg);}
+            #car { transform-box: fill-box; transform-origin: center;}
+            button { 
+                font-size:100pt; 
+                background-color:Transparent; 
+                outline:none;
+                border: none;
+                opacity:0.2;
+                position:absolute;
+            }
+            button:hover { opacity: 0.8; }
+            #leftBtn { top: 300px; left:0; }
+            #rightBtn { top: 300px; left:280px;}
+            #upBtn { top: 50px; left:150px; }
+            #downBtn {top: 570px; left:150px; }
+            
+        </style>
+    </head>
+    <body>
+        <h1>Fjärrstyr robotarm med webbsida</h1>
+        <select id="connectionType">
+            <option value="BLE" selected>Bluetooth</option>
+            <option value="serial">Serial USB</option>
+        </select>
+        <input type="button" value="init"/><br/>
+        <svg width="400" height="600" style="border:1px solid black;">
+            <text id="svgText" x="5" y="15">speed:0%, dir:0deg</text>
+            <g id="car" style="transform: translate(50px, 120px) rotate(0deg)">
+                <!--däck-->
+                <rect x="0" y="30" width="20" height="70" rx="5" fill="black"/>
+                <rect x="280" y="30" width="20" height="70" rx="5" fill="black"/>
+                <rect x="0" y="280" width="20" height="70" rx="5" fill="black"/>
+                <rect x="280" y="280" width="20" height="70" rx="5" fill="black"/>
+                <!--kaross-->
+                <rect x="20" y="0" width="260" height="370" rx="20" fill="green"/>
+                <!--tak-->
+                <rect x="21" y="110" width="258" height="150" rx="20" style="fill:green; stroke:black"/>
+                <!--strålkastare-->
+                <ellipse cx="60" cy="10" rx="20" ry="3" style="fill:yellow; stroke:gray;"/>
+                <ellipse cx="240" cy="10" rx="20" ry="3" style="fill:yellow; stroke:gray;"/>
+                <!--grill-->
+                <rect x="100" y="3" height="10" width="100" rx="5" style="fill:#333; stroke:#AAA;"/>
+            </g>
+            <line id="vectorTurn" x1="200" y1="300" x2="200" y2="300" style="stroke:blue;stroke-width:20;stroke-linecap:round;"/>
+            <line id="vectorSpeed" x1="200" y1="300" x2="200" y2="300" style="stroke:red;stroke-width:20;stroke-linecap:round;"/>
+        </svg>
+        
+        <button id="upBtn">&uarr;</button>
+        <button id="downBtn">&darr;</button>
+        <button id="leftBtn">&larr;</button>
+        <button id="rightBtn">&rarr;</button>
+        
+        <!--<div id="robot">
+            <img src="robotcar.png"/>
+            <input type="range" min="-1024" max="1024" value="0" id="speed"/>
+            <input type="range" min="-100" max="100" value="0" id="dir"/>
+        </div>-->
+        <script type="module">
+            import {user} from '../modules/user.mjs';
+            import {Messenger} from '../modules/messenger.mjs';
+            import {WS} from '../modules/ws.mjs';
+            import {Serial, ttySingleton} from '../modules/serial.mjs';
+            import {BluetoothUart} from '../modules/bluetooth.mjs';
+            import {car} from './displayer.mjs';
+            import {Btn, KeyCode} from './button.mjs';
+            
+            // koppla upp de 2 st sliders
+            //let sliderSp = document.querySelector("#speed");
+            //let sliderDir = document.querySelector("#dir");
+     
+            // skapa en messager
+            var infoLabel = new Messenger();
+     
+            // sätta upp websocket connection
+            var ws = new WS((key, vlu) => {
+                if (key === 'speed')
+                    sliderSp.value = vlu;
+                else if (key === 'dir')
+                    sliderDir = vlu;
+            }, infoLabel, user);
+            
+            
+            let upBtn = new Btn("#upBtn", car.forward.bind(car), null, KeyCode.Up),
+                downBtn = new Btn("#downBtn", car.reverse.bind(car), null, KeyCode.Down),
+                leftBtn =  new Btn("#leftBtn", car.left.bind(car), null, KeyCode.Left),
+                rightBtn =  new Btn("#rightBtn", car.right.bind(car), null, KeyCode.Right);
+            /*setInterval(()=>{
+                car.setDir(car.dir-1); 
+                car.setSpeed(car.speed-3)
+            }, 200);*/
+            // om denna klient ändrar värderna på sliders
+            /*sliderSp.addEventListener("input", ()=>{
+                ws.send(JSON.stringify({speed: speed.value}));
+                
+            });
+            sliderDir.addEventListener("input", ()=>{
+                ws.send(JSON.stringify({dir: dir.value }));
+            });
+            
+            // koppla upp de 2 st sliders till sändfunktionen
+            Serial.onInitialized = () => {
+                //sliderSp.addEventListener("input", ()=>{send('S', sSp.value);});
+                //sliderDir.addEventListener("input", ()=>{send('U', sDir.value);});
+                car.onSpeedChange = () => { ttySingleton.send('S', car.speed); }
+                car.onDirChange = () => { ttySingleton.send('U', car.dir); }
+            }
+            
+            BluetoothUart.onInitialized = () => {
+                car.onSpeedChange = () => { BluetoothUart.instance.send('S', car.speed); }
+                car.onDirChange = () => { BluetoothUart.instance.send('U', car.dir); }
+            }*/
+            
+            let btn = document.querySelector("input[value=init]");
+            btn.addEventListener('click', () => {
+                let type = document.querySelector("#connectionType").value;
+                if (type === 'serial') {
+                    car.onSpeedChange = () => { ttySingleton.send('S', car.speed); }
+                    car.onDirChange = () => { ttySingleton.send('U', car.dir); }
+                    Serial.init(infoLabel);
+                } else if (type === 'BLE') {
+                    car.onSpeedChange = () => { BluetoothUart.instance.send('S', car.speed); }
+                    car.onDirChange = () => { BluetoothUart.instance.send('U', car.dir); }
+                    BluetoothUart.init(infoLabel);
+                }
+            });
+        </script>
+    </body>
+</html>

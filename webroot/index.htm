@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kapitel 12 runner spel</title>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale:1"/>
+    <style type="text/css">
+        html { margin:0; padding:0; }
+        body { margin:0; font-family: Verdana;}
+        #gameover {
+            /* välj elementet som ger återkopplingstext */
+            color: red;
+            display:none;
+            /* mitten på sidan*/
+            position: absolute;
+            text-align: center;
+            width: 180px;
+            top: 200px;
+            left:300px;
+        }
+        #infos {
+            padding: 5px;
+            border: 2px solid darkgray;
+            border-radius: 30px;
+            background-color: lightgray;
+            color: #661133;
+            position:absolute;
+            top:10px;
+            left:500px;
+        }
+        #players {
+            position:absolute;
+            padding:5pt;
+            left:500px;
+            top:50px;
+            border: 1px solid black;
+            border-radius: 5px;
+            opacity:0.5;
+        }
+        #players >div {
+            margin:0;
+            border: 1px solid gray;
+        }
+        #players .color {
+            margin:5px;
+            border: 1px solid black;
+            border-radius: 5px;
+            width:10px;
+            height:10px;
+            display:inline-block;
+        }
+        button {
+            font-size:100pt;
+            width:150px;
+            height:150px;
+            background-color:Transparent;
+            outline:none;
+            border: none;
+            opacity:0.2;
+            position:absolute;
+        }
+        button:hover { opacity: 0.8; }
+        #leftBtn { top: 180px; left:10px; }
+        #rightBtn { top: 180px; left:640px; }
+        #upBtn { top: 0px; left:300px; }
+        #downBtn {top: 350px; left:300px; }
+        svg {
+            border: 1px solid black;
+            background-color: lightgray;
+        }
+        svg > * {
+            stroke:black;
+            stroke-width:1;
+        }
+        polygon { fill:gray; }
+        polyline { fill:none; }
+        #runner { fill:yellow;}
+    </style>
+</head>
+<body>
+    <span id="infos">
+        <span id="myname"></span> &nbsp;
+        Krockar: <span id="crashes">0</span>
+        Nivå: <span id="level">1</span>
+    </span>
+    <div id="players"></div>
+    <div id="arena">
+        <button id="leftBtn">&larr;</button>
+        <button id="upBtn">&uarr;</button>
+        <button id="downBtn">&darr;</button>
+        <button id="rightBtn">&rarr;</button>
+        <h2 id="gameover">Game Over!<br/><a href="javascript:location.reload();">Again?</a></h2>
+        <svg height="500" width="800">
+            <polygon id="innerwall"
+                     points="50,50 50,100 200,100 200,250 50,250
+                             50,450 100,450 100,300 250,300 250,300
+                             250,150 700,150 700,400 550,400 550,300
+                             400,300 400,450 250,450 450,450
+                             750,450 750,100 250,100 250,50 50,50"/>
+            <polygon id="leftwall" points="0,150 150,150 150,200 0,200"/>
+            <polygon id="bottomwall"
+                     points="150,500 150,350 300,350 300,200 650,200
+                             650,350 600,350 600,250 350,250 350,400
+                             200,400 200,500"/>
+            <polygon id="upperwall" points="300,0 300,50 800,50 800,0"/>
+            <polyline id="outerwall" points="0,0 0,500 800,500 800,0 0,0"/>
+            <ellipse id="runner" cx="20" cy="20" rx="15" ry="15"/>
+        </svg>
+    </div>
+    <script>
+        // ------------- hjälp funktioner --------------
+        // skapa en alias, blir mindre att skriva
+        var getNode = document.querySelector.bind(document);
+       
+        // skapa en array med linjer från svg punkter
+        function linesFromPts(pts) {
+            var lines = [];
+            for(var i = 0; i < pts.length -1; i++)
+                lines.push({x1:pts[i].x, y1:pts[i].y,
+                            x2:pts[i+1].x, y2:pts[i+1].y});
+            return lines;
+        }
+        // kollar ifall line1 korsar line2
+        function lineIntersects(line1, line2) {
+            var minX1 = Math.min(line1.x1, line1.x2),
+                maxX1 = Math.max(line1.x1, line1.x2),
+                minX2 = Math.min(line2.x1, line2.x2),
+                maxX2 = Math.max(line2.x1, line2.x2),
+                minY1 = Math.min(line1.y1, line1.y2),
+                maxY1 = Math.max(line1.y1, line1.y2),
+                minY2 = Math.min(line2.y1, line2.y2),
+                maxY2 = Math.max(line2.y1, line2.y2);
+            if (minX1 <= maxX2 && maxX1 >= minX2)
+                return minY1 <= maxY2 && maxY1 >= minY2;
+        }
+        
+        // Definera konstanter. Det är en bugg ifall vårt program
+        // försöker ändra dem vid ett senare tillfälle.
+        const maxWidth = getNode("svg").width.baseVal.value,
+              maxHeight = getNode("svg").height.baseVal.value,
+              maxCrashes = 20;
+              
+        const reverseDir = {
+                up: "down", down: "up", left:"right", right:"left"
+            };
+        let myName = location.hash.replace(/^\#/, "");
+        if (!myName) {
+            myName = prompt("Ditt namn");
+            location.hash = myName;
+        }
+        getNode("#myname").innerText = myName;
+
+        // ----- klass för vår markör/spelare ------
+        class Runner {
+            constructor(controller) {
+                this.controller = controller;
+                this._node = getNode("#runner");
+                this.direction = "still";
+                this.length = 1;
+                this.speed = 1;
+                this.halted = false;
+                this.x = this._node.cx.baseVal.value;
+                this.y = this._node.cy.baseVal.value;
+                // radie på runner och räkna ut höjden vid 45graders hörn
+                this.radius = this._node.rx.baseVal.value;
+                // pytagoras sats C*C = A*A + B*B
+                // C är radien, A och B lika långa pga 45grader, avrunda nedåt
+                this.h45deg = Math.floor(Math.sqrt((this.radius * this.radius) / 2));
+                // lyssna på knapptryck
+                getNode("#upBtn").onclick = this.setDir.bind(this, "up");
+                getNode("#downBtn").onclick = this.setDir.bind(this, "down");
+                getNode("#leftBtn").onclick = this.setDir.bind(this, "left");
+                getNode("#rightBtn").onclick = this.setDir.bind(this, "right");
+            }
+            halt() {
+                this.halted = true;
+                this._node.style.fill = "orange";
+            }
+            setDir(dir) {
+                if (this.direction == dir && this.halted) return;
+                if (this.direction == dir)
+                    ++this.speed;
+                else if (reverseDir[this.direction] == dir) {
+                    if (this.speed === 0) {
+                        this.speed++; this.direction = dir;
+                    } else
+                        this.speed = Math.max(this.speed - 1, 0);
+                }
+                else {
+                    this.direction = dir;
+                    if (this.speed === 0)
+                        ++this.speed;
+                }
+                this.halted = false;
+                this._node.style.fill = "";
+            }
+            nextMove(){
+                // räknar ut vart x och y kommer vara vid nästa move
+                var x = this._node.cx.baseVal.value,
+                    y = this._node.cy.baseVal.value;
+                if (this.direction == "up")
+                    y -= this.speed;
+                else if (this.direction == "down")
+                    y += this.speed;
+                else if (this.direction == "left")
+                    x -= this.speed;
+                else if (this.direction == "right")
+                    x += this.speed;
+                return {x: x, y: y};
+            }
+            move(toPt) {
+                if (this.halted) return;
+                this._node.cy.baseVal.value = this.y = toPt.y;
+                this._node.cx.baseVal.value = this.x = toPt.x;
+                if (this.direction != "still" &&
+                    this.direction != "halted")
+                {
+                    this.length += this.speed;
+                    if (this.speed)
+                        this.controller.connection.sendPos();
+                }
+            }
+            bounds() {
+                var center = this.nextMove();
+                // skapa punkter med 45graders mellanrum runt om cirkeln
+                var runPts = [
+                    {x: center.x, y: center.y - this.radius},
+                    {x: center.x + this.h45deg, y: center.y - this.h45deg},
+                    {x: center.x + this.radius, y: center.y},
+                    {x: center.x + this.h45deg, y: center.y + this.h45deg},
+                    {x: center.x, y: center.y + this.radius},
+                    {x: center.x - this.h45deg, y: center.y + this.h45deg},
+                    {x: center.x - this.radius, y: center.y},
+                    {x: center.x - this.h45deg, y: center.y - this.h45deg},
+                    {x: center.x, y: center.y - this.radius}];
+                return linesFromPts(runPts);
+            }
+            setColor(color) {
+                this._node.style.fill = color;
+            }
+        }
+        
+        // ------ klass för en vägg, används för flera väggar. -----
+        // Enklare detektera kollision om alla väggar har samma API
+        class Wall {
+            constructor(nodeId) {
+                this._node = getNode("#" + nodeId);
+                this._lines = linesFromPts(this._node.points);
+            }
+            isCollision(runBounds) {
+                return this._lines.some(function(wallLn){
+                    return runBounds.some(function(runLn){
+                        return lineIntersects(wallLn, runLn);
+                    }, this)
+                }, this);
+            }
+        }
+        
+        // ----- remoteplayer class -----
+        class RemotePlayer {
+            name = "";
+            id = 0;x = 0; y = 0; length = 0;
+            crashes = 0;
+            collided = false;
+            nameNode; runnerNode; levelNode; crashesNode;
+            color = "#000000";
+            constructor(conn, name, id) {
+                this.connection = conn;
+                this.name = name;
+                this.id = id;
+                // sätt in extern runner node
+                this.runnerNode = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                this.runnerNode.setAttribute("cx", 20);
+                this.runnerNode.setAttribute("cy", 20);
+                this.runnerNode.setAttribute("r", 15);
+                this.runnerNode.style.fill =  this.color;
+                this.runnerNode.style.opacity = 0.5;
+                let runner = getNode("#runner");
+                getNode("svg").insertBefore(this.runnerNode, runner);
+                
+                // sätt in resultat och namn tavla
+                this.nameNode = document.createElement("div");
+                this.colNode = document.createElement("div");
+                this.colNode.className = "color";
+                this.colNode.style.backgroundColor = this.color;
+                this.nameNode.appendChild(this.colNode);
+                this.nameNode.appendChild(document.createTextNode(this.name+ " "+ this.id));
+                this.crashesNode = document.createElement("span");
+                this.crashesNode.innerText = 0;
+                this.levelNode = document.createElement("span");
+                this.levelNode.innerText = 1;
+                this.nameNode.appendChild(document.createTextNode("  Krockar:"));
+                this.nameNode.appendChild(this.crashesNode);
+                this.nameNode.appendChild(document.createTextNode("  Nivå:"));
+                this.nameNode.appendChild(this.levelNode);
+                getNode("#players").appendChild(this.nameNode);
+            }
+            setPos(x, y, len) {
+                this.runnerNode.cy.baseVal.value = this.y = y;
+                this.runnerNode.cx.baseVal.value = this.x = x;
+                this.length = len;
+                if ((this.length % 2000) == 0)
+                    this.levelNode.innerText = this.length / 2000;
+                
+            }
+            setCrashes(crashCount, collided) {
+                this.crashesNode.innerText = crashCount;
+                this.runnerNode.style.opacity = collided ? 1.0 : 0.5;
+            }
+            setColor(color) {
+                this.color = color;
+                this.runnerNode.style.fill = color;
+                this.colNode.style.backgroundColor = color;
+            }
+            removeMe(){
+                this.runnerNode.parentElement.removeChild(this.runnerNode);
+                this.nameNode.parentNode.removeChild(this.nameNode);
+            }
+        }
+        
+        // ----- websocket class ---------
+        const ID=0, NAME = 1, POSLEN = 2, COLCRASH = 3,
+              REMOVE = 4, COLOR = 5;
+        class ServerConnection extends WebSocket {
+            id = 0;
+            remotePlayers = [];
+            constructor(controller){
+                let prot = 'ws:'
+                if (location.protocol === "https:")
+                    prot = 'wss:'
+                super(prot + '//' + location.hostname + ':'
+                        + location.port + '/runnerremote/');
+                this.onmessage = this._onmessage;
+                this.onclose = this._onclose;
+                this.onopen = this._onopen;
+                this.controller = controller;
+            }
+            _onopen() {
+                console.log('WebSocket Client Connected');
+                this.binaryType = "arraybuffer";
+                let enc = new TextEncoder();
+                let u8Arr = enc.encode(myName);
+                let buffer = new ArrayBuffer(u8Arr.length +2);
+                let view = new DataView(buffer);
+                view.setUint8(0, NAME);
+                view.setUint8(1, this.id);
+                for(let i = 0; i < u8Arr.byteLength; ++i)
+                    view.setUint8(i+2, u8Arr[i]);
+                this.send(buffer);
+            }
+            _onmessage(e) {
+                console.log("Received:", e.data);
+                if (e.data instanceof ArrayBuffer) {
+                    let view = new DataView(e.data);
+                    let msgType = view.getUint8(0);
+                    let id = view.getUint8(1);
+                    let p = null;
+                    switch(msgType) {
+                    case ID: // got my id
+                        this.id = view.getUint8(1);
+                        break;
+                    case NAME:
+                        // new player
+                        let dec = new TextDecoder();
+                        let name = dec.decode(e.data.slice(2));
+                        this.remotePlayers.push(new RemotePlayer(this, name, id))
+                        break;
+                    case POSLEN:
+                        // other player changed pos
+                        if ((p = this._remotePlayer(id)))
+                            p.setPos(view.getUint16(2),
+                                   view.getUint16(4),
+                                   view.getUint32(6));
+                        break;
+                    case COLCRASH:
+                        // other player changed crash
+                        if ((p = this._remotePlayer(id)))
+                            p.setCrashes(view.getUint16(2),
+                                   Boolean(view.getUint8(1)));
+                       
+                        break;
+                    case REMOVE:
+                        // other player was removed
+                        for (let i = 0; i < this.remotePlayers.length; ++i) {
+                            if (this.remotePlayers[i].id === id) {
+                                this.remotePlayers[i].removeMe();
+                                this.remotePlayers.splice(i, 1);
+                            }
+                        }
+                        break;
+                    case COLOR:
+                        let color = 'rgb(' + view.getUint8(2)
+                                + ',' + view.getUint8(3) + ','
+                                + view.getUint8(4) + ')';
+                        if (id == this.id) {
+                            this.controller.runner.setColor(color);
+                        } else {
+                            if ((p = this._remotePlayer(id)))
+                                p.setColor(color);
+                        }
+                        break;
+                    default:
+                        console.log("unrecognized msg type:" + msgType);
+                    }
+                }
+                
+            }
+            _remotePlayer(id) {
+                let pl;
+                this.remotePlayers.some((p)=>{
+                    if (p.id === id) {
+                        pl = p;
+                        return true;
+                    }
+                });
+                return pl;
+            }
+            _onclose(e) {
+                console.log("Connection closed");
+            }
+            sendPos() {
+                let buffer = new ArrayBuffer(10);
+                let view = new DataView(buffer);
+                let r = this.controller.runner;
+                view.setUint8(0, POSLEN);
+                view.setUint8(1, this.id);
+                view.setUint16(2, r.x);
+                view.setUint16(4, r.y);
+                view.setUint32(6, r.length);
+                this.send(buffer);
+            }
+            sendCrash() {
+                let buffer = new ArrayBuffer(5);
+                let view = new DataView(buffer);
+                let r = this.controller.runner;
+                view.setUint8(0, COLCRASH);
+                view.setUint8(1, this.id);
+                view.setUint16(2, this.controller.crashes);
+                view.setUint8(4,
+                    Number(this.controller.collided));
+                this.send(buffer);
+            }
+        }
+        
+        // ----- kontroller klass för spelet, får endast finnas 1 en instans -----
+        class Controller {
+            constructor() {
+                // körs endast 1 gång när vi skapar denna klass
+                this.crashes = 0;
+                this.runner = new Runner(this);
+                this.walls = [new Wall("innerwall"), new Wall("leftwall"),
+                              new Wall("bottomwall"), new Wall("upperwall"),
+                              new Wall("outerwall")];
+                document.body.onkeydown = this.keydown.bind(this);
+                this.tmr = setInterval(this.update.bind(this), 20);
+                this.connection = new ServerConnection(this);
+            }
+            update() {
+                // update funktionen, invokeras var 20ms, kollar ifall vi
+                // kolliderat och kallar på att Runner skall flytta sig
+                if (this.runner.direction != "halt") {
+                    var runBounds = this.runner.bounds();
+                    this.collided = this.walls.some(function(wall){
+                        return wall.isCollision(runBounds);
+                    }, this);
+                    if (this.collided) {
+                        var speed = this.runner.speed;
+                        --this.runner.speed;
+                        this.update();
+                        this.runner.speed = speed;
+                        this.runner.halt()
+                        if (this.crashdir != this.runner.direction) {
+                            getNode("#crashes").innerText = ++this.crashes;
+                            this.crashdir = this.runner.direction;
+                            if (!this.wasCollided) {
+                                this.wasCollided = true;
+                                this.connection.sendCrash();
+                            }
+                        }
+                        if (this.crashes > maxCrashes) {
+                            clearInterval(this.tmr);
+                            getNode("#gameover").style.display = "block";
+                        }
+                    } else {
+                        this.runner.move(this.runner.nextMove());
+                        
+                        if (this.wasCollided) {
+                            this.wasCollided = false;
+                            this.connection.sendCrash();
+                        }
+                    }
+                    if ((this.runner.length % 2000) == 0) { // kör var hundrade pixel
+                        getNode("#level").innerText = this.runner.length / 2000;
+                        this.runner.speed++;
+                    }
+                }
+            }
+            keydown(evt) {
+                // vi kommer hit när vi tryck på någon knapp
+                if (evt.keyCode == 38) // Up
+                    this.runner.setDir("up");
+                else if (evt.keyCode == 40) // Down
+                    this.runner.setDir("down");
+                else if (evt.keyCode == 37) // Left
+                    this.runner.setDir("left");
+                else if (evt.keyCode == 39) // Right
+                    this.runner.setDir("right");
+            }
+        }
+        
+        var controller = new Controller(); // create singelton class for gamecontroller
+        
+
+        
+    </script>
+</body>
+</html>
+

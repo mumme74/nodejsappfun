@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html land="sv">
+ <head>
+    <title>Webcam test</title>
+ <head>
+ <body>
+ <video autoplay></video>
+ <script language="javascript" type="text/javascript">
+    function onVideoFail(e) {
+        console.log('webcam fail!', e);
+      };
+
+    
+    //window.URL = window.URL || window.webkitURL;
+
+    var video = document.querySelector('video');
+    var streamRecorder;
+    var webcamstream;
+
+    if (navigator.mediaDevices.getUserMedia) {
+        let constraints =  {
+            'audio': {'echoCancellation': true},
+            'video':{
+             'width': { 'min':640 },
+             'height': { 'min': 480}
+            }
+         };
+         const openMediaDevices = async (constraints) => {
+            return await navigator.mediaDevices.getUserMedia(constraints);
+        }
+        
+        try {
+            const streamPromise = openMediaDevices({'video':true,'audio':true});
+            console.log('Got MediaStream:', streamPromise);
+            streamPromise.then(stream=>{
+                
+                video.srcObject = stream;
+                video.muted = true;
+                webcamstream = stream;
+            })
+        } catch(error) {
+            console.error('Error accessing media devices.', error);
+        }
+    } else {
+        alert ('failed, mediaDivices not supported');
+    }
+
+    function startRecording() {
+        streamRecorder = webcamstream.record();
+        setTimeout(stopRecording, 10000);
+    }
+    function stopRecording() {
+        streamRecorder.getRecordedData(postVideoToServer);
+    }
+    function postVideoToServer(videoblob) {
+
+        var data = {};
+        data.video = videoblob;
+        data.metadata = 'test metadata';
+        data.action = "upload_video";
+        jQuery.post("http://www.kongraju.in/uploadvideo.php", data, onUploadSuccess);
+    }
+    function onUploadSuccess() {
+        alert ('video uploaded');
+    }
+    
+
+    </script>
+
+    <div id="webcamcontrols">
+        <button class="recordbutton" onclick="startRecording();">RECORD</button>
+    </div>
+ </body>
+</html>
+
