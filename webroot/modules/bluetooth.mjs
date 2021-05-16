@@ -21,6 +21,7 @@ class BluetoothUart {
     txCharacteristic = null;
     rxCallback = () => {};
     onInitialized = () => {};
+    _sendTmr = null;
     
     static async init(messenger) {
         let self = new BluetoothUart();
@@ -28,7 +29,7 @@ class BluetoothUart {
         self.messenger = messenger;
         
         if (uBitDevice)
-            return log("Bluetooth already initialized");
+            return self.log("Bluetooth already initialized");
             
         try {
             console.log("Requesting Bluetooth Device...");
@@ -82,7 +83,11 @@ class BluetoothUart {
         let cmdStr = key + value +'\n';
         let encoder = new TextEncoder('utf-8');
         let encStr = encoder.encode(cmdStr);
-        this.rxCharacteristic.writeValue(encStr);
+        // be gentle to mbit, we might drown it in commands
+        clearTimeout(this._sendTmr);
+        this._sendTmr = setTimeout(()=>{
+            this.rxCharacteristic.writeValue(encStr);
+        }, 50);
         console.log('Send:' + encStr)
     }
     
