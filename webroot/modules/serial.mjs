@@ -1,8 +1,8 @@
-export { Serial, ttySingleton };
+export { Serial};
 
-var ttySingleton;
 
 class Serial {
+    static instance;
     messenger = null;
     static initialized = false;
     static onInitialized = () => {};
@@ -18,8 +18,9 @@ class Serial {
     static async init(messenger) {
         if (this.initialized) 
             return this.messenger("Web serial är redan initialiserad");
-        ttySingleton = new Serial(); // create a new singleton
-        ttySingleton.messenger = messenger;
+        let self = new Serial(); // create a new singleton
+        self.instance = self;
+        self.messenger = messenger;
         
         if ("serial" in navigator) {
             // fråga användare om vilken serieport, ställ in baudrate etc.
@@ -35,7 +36,7 @@ class Serial {
             this.onInitialized();
             
         } else
-            ttySingleton.log("Web Serial är inte aktiverat. Måste aktiveras först");
+            self.log("Web Serial är inte aktiverat. Måste aktiveras först");
     };
     
     log(msg) {

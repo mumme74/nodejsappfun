@@ -3,127 +3,97 @@
     <head>
         <title>Remotecar</title>
         <meta charset="UTF-8">
-        <script type="text/javascript">
-        /*
-        // gemensam sänd function för Serial bluetooth eller USB
-        async function send(key, value) {
-            const writer = outputStream.getWriter();
-            writer.write(key + value + '\n');
-            writer.releaseLock();
-        }
-            
-        async function init() {
-            if ("serial" in navigator) {
-                // fråga användare om vilken serieport, ställ in baudrate etc.
-                const port = await navigator.serial.requestPort();
-                await port.open({baudRate: 115200});
-                //const wrSerial = port.writable.getWriter();
-                
-                const encoder = new TextEncoderStream();
-                outputDone = encoder.readable.pipeTo(port.writable);
-                outputStream = encoder.writable;
-                
-                
-                // koppla upp de 4 st sliders till sändfunktionen
-                let sSp = document.querySelector("#speed");
-                sSp.addEventListener("input", ()=>{send('S', sSp.value);});
-                let sDir = document.querySelector("#dir");
-                sDir.addEventListener("input", ()=>{send('D', sDir.value);});
-            } else
-                alert("Web Serial är inte aktiverat. Måste aktiveras först");
-        };*/
-        </script>
         <style>
-            #robot > img {
-                width: 800px;
-                position: absolute;
-                z-index: 0;
-                transform: scaleX(-1);
+            #car { transform-box: fill-box; transform-origin: center;}
+            button { 
+                font-size:100pt; 
+                background-color:Transparent; 
+                outline:none;
+                border: none;
+                opacity:0.2;
+                position:absolute;
             }
-            #robot > input {position: absolute; width: 150px; }
-            #speed {left: 320px; top: 100px; width: 300px;}
-            #dir {left: 700px; top: 180px; transform: rotate(90deg);}
-            #info {
-                position: fixed;
-                opacity:0.5;
-                text-align: center;
-                background-color: yellow;
-                width:100%;
-                color:blue;
-            }
+            button:hover { opacity: 0.8; }
+            #leftBtn { top: 300px; left:0; }
+            #rightBtn { top: 300px; left:280px;}
+            #upBtn { top: 50px; left:150px; }
+            #downBtn {top: 570px; left:150px; }
+            
         </style>
     </head>
     <body>
-        <div id="info"></div>
-        <h1>Fjärrstyr bil med webbsida</h1>
-        <!--<input type="button" value="init" onclick="init()"/>-->
-        <div id="robot">
-            <img src="robotcar.png"/>
-            <input type="range" min="-1024" max="1024" value="0" id="speed"/>
-            <input type="range" min="-100" max="100" value="0" id="dir"/>
-        </div>
-        <script type="text/javascript">
-            // koppla upp de 2 st sliders
-            let sliderSp = document.querySelector("#speed");
-            let sliderDir = document.querySelector("#dir");
+        <h1>Fjärrstyr robotarm med webbsida</h1>
+        <select id="connectionType">
+            <option value="BLE" selected>Bluetooth</option>
+            <option value="serial">Serial USB</option>
+        </select>
+        <input type="button" value="init"/><br/>
+        <svg width="400" height="600" style="border:1px solid black;">
+            <text id="svgText" x="5" y="15">speed:0%, dir:0deg</text>
+            <g id="car" style="transform: translate(50px, 120px) rotate(0deg)">
+                <!--däck-->
+                <rect x="0" y="30" width="20" height="70" rx="5" fill="black"/>
+                <rect x="280" y="30" width="20" height="70" rx="5" fill="black"/>
+                <rect x="0" y="280" width="20" height="70" rx="5" fill="black"/>
+                <rect x="280" y="280" width="20" height="70" rx="5" fill="black"/>
+                <!--kaross-->
+                <rect x="20" y="0" width="260" height="370" rx="20" fill="green"/>
+                <!--tak-->
+                <rect x="21" y="110" width="258" height="150" rx="20" style="fill:green; stroke:black"/>
+                <!--strålkastare-->
+                <ellipse cx="60" cy="10" rx="20" ry="3" style="fill:yellow; stroke:gray;"/>
+                <ellipse cx="240" cy="10" rx="20" ry="3" style="fill:yellow; stroke:gray;"/>
+                <!--grill-->
+                <rect x="100" y="3" height="10" width="100" rx="5" style="fill:#333; stroke:#AAA;"/>
+            </g>
+            <line id="vectorTurn" x1="200" y1="300" x2="200" y2="300" style="stroke:blue;stroke-width:20;stroke-linecap:round;"/>
+            <line id="vectorSpeed" x1="200" y1="300" x2="200" y2="300" style="stroke:red;stroke-width:20;stroke-linecap:round;"/>
+        </svg>
         
-            // namn på användaren
-            var myname = location.hash.substring(1);
-            if (!myname) {
-                myname = prompt("Ditt namn?");
-                location.hash = myname;
-            }
-                
+        <button id="upBtn">&uarr;</button>
+        <button id="downBtn">&darr;</button>
+        <button id="leftBtn">&larr;</button>
+        <button id="rightBtn">&rarr;</button>
+        
+        <script type="module">
+            import {user} from '../modules/user.mjs';
+            import {Messenger} from '../modules/messenger.mjs';
+            import {WS} from '../modules/ws.mjs';
+            import {car} from './displayer.mjs';
+            import {Btn, KeyCode} from './button.mjs';
+     
+            // skapa en messager
+            var infoLabel = new Messenger();
+     
             // sätta upp websocket connection
-            let prot = 'ws:'
-            if (location.protocol === "https:")
-                prot = 'wss:'
-            var ws = new WebSocket(prot + '//' + location.hostname + ':' + location.port + '/robotarm/');
-            showMsg("Försöker kontakta servern:" + ws.url);
+            let tmrSp, tmrDir;
+            var ws = new WS((key, vlu) => {
+                if (key === 'speed')
+                    car.setSpeed(vlu);
+                else if (key === 'dir')
+                    car.setDir(vlu);
+            }, infoLabel, user);
             
-            // sänd namnet när vi fått kontakt med servern
-            ws.onopen = (e) => {
-                ws.send(JSON.stringify({name: myname}));
-                showMsg("Kontakt med server")
+            ws.sendSpeed = ()=>{
+                clearTimeout(tmrSp);
+                tmrSp = setTimeout(()=>{
+                    ws.ws.send(JSON.stringify({speed: car.speed}));
+                }, 20);
             }
-            ws.onclose = (e) => {showMsg("Kontakt bruten med server")}
-            
-            // ta emot ändringar från andra klienter
-            ws.onmessage = (e) => {
-                var json = JSON.parse(e.data);
-                showMsg(json.name + " styr just nu.")
-                
-                if (!isNaN(json.speed))
-                    sliderSp.value = json.speed;
-                if (!isNaN(json.dir))
-                    sliderDir.value = json.dir;
+            ws.sendDir = ()=>{
+                clearTimeout(tmrDir);
+                tmrDir = setTimeout(()=>{
+                    ws.ws.send(JSON.stringify({dir: car.dir}));
+                }, 20);
             }
             
             
-            // om denna klient ändrar värderna på sliders
-            sliderSp.addEventListener("input", ()=>{
-                ws.send(JSON.stringify({speed: speed.value}));
-                
-            });
-            sliderDir.addEventListener("input", ()=>{
-                ws.send(JSON.stringify({ dir: dir.value }));
-            });
-            
-            // info banner
-            function showMsg(msgStr) {
-                clearInterval(showMsg.t);
-                let n = document.querySelector("#info");
-                n.innerHTML = msgStr;
-                n.style.opacity = 1;
-                showMsg.t = setInterval(()=>{
-                    n.style.opacity -= 0.05;
-                    if (n.style.opacity <= 0.0)
-                        clearInterval(showMsg.t);
-                }, 200);
-            }
-            
-            
+            // create buttons
+            let upBtn = new Btn("#upBtn", ()=>{car.forward();ws.sendSpeed()}, null, KeyCode.Up),
+                downBtn = new Btn("#downBtn", ()=>{car.reverse();ws.sendSpeed()}, null, KeyCode.Down),
+                leftBtn =  new Btn("#leftBtn", ()=>{car.left();ws.sendDir()}, null, KeyCode.Left),
+                rightBtn =  new Btn("#rightBtn", ()=>{car.right();ws.sendDir()}, null, KeyCode.Right);
+    
         </script>
     </body>
 </html>
-
