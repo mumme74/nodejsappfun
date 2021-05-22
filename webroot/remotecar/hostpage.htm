@@ -4,30 +4,47 @@
         <title>Remotecar</title>
         <meta charset="UTF-8">
         <style>
+            html, body{ font-family: sans-serif; }
+            header {
+                font-size: 20pt; color: white; background-color: #444a33;
+                width: 402px; text-align: center;
+            }
+            header > input { font-size: 16pt; float: left; }
             #car { transform-box: fill-box; transform-origin: center;}
+            /* steering buttons */
             button { 
-                font-size:100pt; 
-                background-color:Transparent; 
-                outline:none;
-                border: none;
-                opacity:0.2;
-                position:absolute;
+                font-size:100pt; background-color:Transparent; outline:none;
+                border: none; opacity:0.2; position:absolute;
             }
             button:hover { opacity: 0.8; }
-            #leftBtn { top: 300px; left:0; }
-            #rightBtn { top: 300px; left:280px;}
-            #upBtn { top: 50px; left:150px; }
-            #downBtn {top: 570px; left:150px; }
+            #leftBtn { top: 280px; left:0; }
+            #rightBtn { top: 280px; left:280px;}
+            #upBtn { top: 60px; left:170px; }
+            #downBtn {top: 540px; left:170px; }
+
+            /* microbit connection */
+            #microbitDiv { padding: 10px; width: 382px; background-color: red; }
+            #microbitDiv:after { content: "Ej ansluten till micro:bit"; }
+            #microbitDiv.connected { background-color: green;}
+            #microbitDiv.connected:after { content: "Ansluten till micro:bit";}
             
+            /* websocket button */
+            #serverBtn {background-color: red; border:1px solid gray; }
+            #serverBtn.connected { background-color: green; }
         </style>
     </head>
     <body>
-        <h1>Fjärrstyr robotarm med webbsida</h1>
-        <select id="connectionType">
+        <header>
+            <input id="serverBtn" type="button" title="Kontakt med Webserver" value="&#x1f5a7;"/>
+            Fjärrstyr fordon
+        </header>
+        <div id='microbitDiv'>
+          <select id="connectionType">
             <option value="BLE" selected>Bluetooth</option>
             <option value="serial">Serial USB</option>
-        </select>
-        <input type="button" value="init"/><br/>
+          </select>
+          <input type="button" value="micro:bit"/>
+        </div>
         <svg width="400" height="600" style="border:1px solid black;">
             <text id="svgText" x="5" y="15">speed:0%, dir:0deg</text>
             <g id="car" style="transform: translate(50px, 120px) rotate(0deg)">
@@ -79,30 +96,44 @@
             ws.sendSpeed = ()=>{
                 clearTimeout(tmrSp);
                 tmrSp = setTimeout(()=>{
-                    ws.ws.send(JSON.stringify({speed: car.speed}));
+                    ws.send(JSON.stringify({speed: car.speed}));
                 }, 20);
             }
             ws.sendDir = ()=>{
                 clearTimeout(tmrDir);
                 tmrDir = setTimeout(()=>{
-                    ws.ws.send(JSON.stringify({dir: car.dir}));
+                    ws.send(JSON.stringify({dir: car.dir}));
                 }, 20);
             }
             
+            // websocket server connection
+            let serverBtn = document.querySelector("#serverBtn");
+            serverBtn.addEventListener('click', e=>ws.connect());
+            ws.onConnected = (e)=>{
+                serverBtn.className = "connected";
+                serverBtn.disabled = true;
+            }
+            ws.onDisconnected = (e)=>{
+                serverBtn.className = '';
+                serverBtn.disabled = false;
+            }
+            if (!ws.connect())
+                infoLabel.show("Kunde inte ansluta till websocket server")
             
-            // create buttons
+            // create steering buttons
             let upBtn = new Btn("#upBtn", ()=>{car.forward();ws.sendSpeed()}, null, KeyCode.Up),
                 downBtn = new Btn("#downBtn", ()=>{car.reverse();ws.sendSpeed()}, null, KeyCode.Down),
                 leftBtn =  new Btn("#leftBtn", ()=>{car.left();ws.sendDir()}, null, KeyCode.Left),
                 rightBtn =  new Btn("#rightBtn", ()=>{car.right();ws.sendDir()}, null, KeyCode.Right);
-            
-            let initBtn = document.querySelector("input[value=init]");
-            initBtn.addEventListener('click', () => {
-                let type = document.querySelector("#connectionType").value;
+
+            // initialize bluetooth/serial
+            let initBtn = document.querySelector("input[value='micro:bit']");
+            initBtn.addEventListener('click', async () => {
+                let conType = document.querySelector("#connectionType");
                 let obj;
-                if (type === 'serial') {
+                if (conType.value === 'serial') {
                     obj = Serial;
-                } else if (type === 'BLE') {
+                } else if (conType.value === 'BLE') {
                     obj = BluetoothUart;
                 }
                 
@@ -110,9 +141,29 @@
                     obj.instance.send('S', car.speed); 
                 }
                 car.onDirChange = () => { 
-                    obj.instance.send('U', car.dir); 
+                    obj.instance.send('D', car.dir);
                 }
-                obj.init(infoLabel);
+
+                // helper function, tells user we are connected to micro:bit
+                function conn(isConnected) {
+                    document.querySelector("#microbitDiv").className = isConnected ? "connected": "";
+                    initBtn.disabled = isConnected;
+                    conType.disabled = isConnected;
+                }
+
+                // set up connection events
+                obj.onDisconnected = e=> {
+                    conn(false);
+                    obj.reset();
+                }
+
+                obj.rxCallback = (str) => {
+                    console.log(str);
+                }
+
+                // init connection
+                let res = await obj.init(infoLabel);
+                conn(res);
             });
         </script>
     </body>

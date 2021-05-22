@@ -64,18 +64,31 @@ class Dir {
     }
 }
 
+function ultrasonic() {
+    //led.toggleAll();
+    // based loosly on this https://4tronix.co.uk/blog/?p=1832
+    pins.digitalWritePin(DigitalPin.P15, 1); // Send 10us Ping pulse
+    control.waitMicros(10);
+    pins.digitalWritePin(DigitalPin.P15, 0);
+    while (pins.digitalReadPin(DigitalPin.P15) == 0) // ensure Ping pulse has cleared
+        ;
+    let start = control.micros(); // define starting time
+    while (pins.digitalReadPin(DigitalPin.P15)) // wait for Echo pulse to return
+        ;
+    let end = control.micros(); // define ending time
+    let echo = end - start;
+    return Math.round(0.01715 * echo) // Calculate cm distance
+}
+
 let dir = new Dir();
+
 //serial.setBaudRate(BaudRate.BaudRate115200);
 bluetooth.startUartService();
 //bluetooth.advertiseUid(0, 0, 7, false)
 //bluetooth.advertiseUrl("https://makecode.com", 7, false)
 
-
-basic.forever(function () {
-    let msg = bluetooth.uartReadUntil(
-    //let msg = serial.readUntil(
-                serial.delimiters(
-                    Delimiters.NewLine));
+bluetooth.onUartDataReceived("\n", function () {
+    let msg = bluetooth.uartReadUntil("\n");
     if (msg.length > 1) {
         if (msg[0] === "S") {
             dir.setSpeed(parseInt(msg.substr(1)));
@@ -83,5 +96,29 @@ basic.forever(function () {
             dir.setDir(parseInt(msg.substr(1)));
         }
     }
+})
+
+let nextMeasurement: number = 0;
+//let i: number = 0, j: number = 0;
+basic.forever(function () {
+    //led.toggle(i++, j);
+    //if (i ==5) { i = 0; j++ }
+    //if (j == 5) j = 0;
+
+/*
+    if (nextMeasurement < control.millis()) {
+        //basic.showString("m")
+        nextMeasurement = control.millis() + 2000;
+        // distance
+        let distance = ultrasonic();
+        //basic.showNumber(distance);
+        let str: string =
+            'D' + distance + ":" +
+            'L' + pins.digitalReadPin(DigitalPin.P16) + ":"
+            'R' + pins.digitalReadPin(DigitalPin.P14);
+        // LineFollower
+        bluetooth.uartWriteLine(str);
+    }
+    */
 })
 

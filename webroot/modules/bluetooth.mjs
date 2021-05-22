@@ -19,18 +19,24 @@ class BluetoothUart {
     static instance;
     rxCharacteristic = null;
     txCharacteristic = null;
-    rxCallback = () => {};
-    onInitialized = () => {};
+    static rxCallback = () => {};
+    static onInitialized = () => {};
+    static onDisconnected = (event) => {
+        BluetoothUart.instance.log("GATT server disconnected (Bluetooth)");
+    };
+    static onConnected = (event) => {
+        BluetoothUart.instance.log("GATT server connected (Bluetooth)");
+    };
     _sendTmr = null;
-    
+
     static async init(messenger) {
         let self = new BluetoothUart();
-        BluetoothUart.instance = self;
-        self.messenger = messenger;
-        
         if (uBitDevice)
             return self.log("Bluetooth already initialized");
-            
+
+        BluetoothUart.instance = self;
+        self.messenger = messenger;
+
         try {
             console.log("Requesting Bluetooth Device...");
             uBitDevice = await navigator.bluetooth.requestDevice({
@@ -40,6 +46,10 @@ class BluetoothUart {
                 ],
                 optionalServices: [BLE_UART_SERVICE]
             });
+
+            // event callbacks when we are connected
+            uBitDevice.addEventListener('gattserverdisconnected', e=>BluetoothUart.onDisconnected(e));
+            uBitDevice.addEventListener('gattserverconnected', e=>BluetoothUart.onConnected(e));
 
             // e.g. BBC micro:bit [votiv]
             self.log("Connected to " + uBitDevice.name);
@@ -65,18 +75,26 @@ class BluetoothUart {
                 ev => {
                     let value = ev.target.value;
                     let vluStr = new TextDecoder().decode(value);
-                    this.rxCallback(vluStr);
+                    BluetoothUart.rxCallback(vluStr);
                 }
             );
             
             self.log("Getting Rx Characteristics...");
             self.rxCharacteristic = await service.getCharacteristic(BLE_UART_RX_CHARACTERISTIC);
             
-            self.onInitialized();
+            BluetoothUart.onInitialized();
 
         } catch (error) {
             self.log(error);
+            uBitDevice = null;
         }
+
+        return uBitDevice && uBitDevice.gatt.connected;
+    }
+
+    static reset() {
+        BluetoothUart.instance = null;
+        uBitDevice = null;
     }
     
     send(key, value) {
@@ -88,7 +106,7 @@ class BluetoothUart {
         this._sendTmr = setTimeout(()=>{
             this.rxCharacteristic.writeValue(encStr);
         }, 50);
-        console.log('Send:' + encStr)
+        //console.log('Send:' + encStr)
     }
     
     log(msg) {
@@ -96,17 +114,5 @@ class BluetoothUart {
             this.messenger.show(msg);
         return console.log(msg);
     }
-
-    disconnectButtonPressed() {
-      if (!uBitDevice) {
-        return;
-      }
-
-      if (uBitDevice.gatt.connected) {
-        uBitDevice.gatt.disconnect();
-        console.log("Disconnected");
-      }
-    }
-
 }
 

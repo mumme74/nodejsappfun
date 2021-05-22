@@ -55,8 +55,8 @@ class Car {
     
     left() { this.setDir(this.dir-1); }
     right() { this.setDir(this.dir+1); }
-    forward() { this.setSpeed(this.speed +5); }
-    reverse() { this.setSpeed(this.speed -5); }
+    forward() { this.setSpeed(this.speed +10); }
+    reverse() { this.setSpeed(this.speed -10); }
     
     _update(){
         let speed = Math.round(this.speed / 5.11, 0);

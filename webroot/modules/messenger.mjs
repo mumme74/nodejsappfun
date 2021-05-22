@@ -31,11 +31,14 @@ class Messenger {
     show(msgStr) {
         clearInterval(this._tmr);
         this.node.innerHTML = msgStr;
+        this.node.style.display = '';
         this.node.style.opacity = 1;
         this._tmr = setInterval(()=>{
             this.node.style.opacity -= 0.05;
-            if (this.node.style.opacity <= 0.0)
+            if (this.node.style.opacity <= 0.0) {
                 clearInterval(this._tmr);
+                this.node.style.display = 'none';
+            }
         }, 200);
     }
 }

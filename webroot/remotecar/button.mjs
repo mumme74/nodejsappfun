@@ -7,13 +7,17 @@ const KeyCode = {
 // detta är en controller som låter oss få repeat 
 // (håll inne och då upprepas pressCallback)
 class Btn {
-    
+    tmr = null;
+    pressCallback = null;
+    releaseCallback = null;
+
     constructor (btnId, pressCallback, releaseCallback, keyCode) {
         var btnNode = document.querySelector(btnId);
-        var self = this; // scope closure
+        this.pressCallback = pressCallback;
+        this.releaseCallback = releaseCallback;
         // lyssna efter mustryckningar
-        btnNode.addEventListener("mousedown", this.press);
-        btnNode.addEventListener("mouseup", this.release);
+        btnNode.addEventListener("mousedown", this.press.bind(this));
+        btnNode.addEventListener("mouseup", this.release.bind(this));
 
         // lyssna på knapptryckningar
         if (keyCode) {
@@ -25,17 +29,18 @@ class Btn {
                 if (evt.keyCode == keyCode) this.release();
             });
         }
-        this.press = function() {
-            clearInterval(self.tmr);
-            self.tmr = setInterval(function(){
-                pressCallback();
+    }
+
+    press() {
+        clearInterval(this.tmr);
+        this.tmr = setInterval(()=>{
+                this.pressCallback();
             }, 20);
-        }
-        this.release = function() {
-            clearInterval(self.tmr);
-            if (releaseCallback)
-                releaseCallback();
-        }
+    }
+    release() {
+        clearInterval(this.tmr);
+        if (this.releaseCallback)
+            this.releaseCallback();
     }
 };
     

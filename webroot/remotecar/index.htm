@@ -4,30 +4,34 @@
         <title>Remotecar</title>
         <meta charset="UTF-8">
         <style>
+            html, body{ font-family: sans-serif; }
+            header {
+                font-size: 20pt; color: white; background-color: #444a33;
+                width: 402px; text-align: center;
+            }
+            header > input { font-size: 16pt; float: left; }
             #car { transform-box: fill-box; transform-origin: center;}
+            /* steering buttons */
             button { 
-                font-size:100pt; 
-                background-color:Transparent; 
-                outline:none;
-                border: none;
-                opacity:0.2;
-                position:absolute;
+                font-size:100pt; background-color:Transparent; outline:none;
+                border: none; opacity:0.2; position:absolute;
             }
             button:hover { opacity: 0.8; }
-            #leftBtn { top: 300px; left:0; }
-            #rightBtn { top: 300px; left:280px;}
-            #upBtn { top: 50px; left:150px; }
-            #downBtn {top: 570px; left:150px; }
+            #leftBtn { top: 250px; left:0; }
+            #rightBtn { top: 250px; left:280px;}
+            #upBtn { top: 10px; left:170px; }
+            #downBtn {top: 510px; left:170px; }
             
+            /* websocket button */
+            #serverBtn {background-color: red; border:1px solid gray; }
+            #serverBtn.connected { background-color: green; }
         </style>
     </head>
     <body>
-        <h1>Fjärrstyr robotarm med webbsida</h1>
-        <select id="connectionType">
-            <option value="BLE" selected>Bluetooth</option>
-            <option value="serial">Serial USB</option>
-        </select>
-        <input type="button" value="init"/><br/>
+        <header>
+            <input id="serverBtn" type="button" title="Kontakt med Webserver" value="&#x1f5a7;"/>
+            Fjärrstyr fordon
+        </header>
         <svg width="400" height="600" style="border:1px solid black;">
             <text id="svgText" x="5" y="15">speed:0%, dir:0deg</text>
             <g id="car" style="transform: translate(50px, 120px) rotate(0deg)">
@@ -61,10 +65,10 @@
             import {WS} from '../modules/ws.mjs';
             import {car} from './displayer.mjs';
             import {Btn, KeyCode} from './button.mjs';
-     
+
             // skapa en messager
             var infoLabel = new Messenger();
-     
+
             // sätta upp websocket connection
             let tmrSp, tmrDir;
             var ws = new WS((key, vlu) => {
@@ -73,27 +77,39 @@
                 else if (key === 'dir')
                     car.setDir(vlu);
             }, infoLabel, user);
-            
+
             ws.sendSpeed = ()=>{
                 clearTimeout(tmrSp);
                 tmrSp = setTimeout(()=>{
-                    ws.ws.send(JSON.stringify({speed: car.speed}));
+                    ws.send(JSON.stringify({speed: car.speed}));
                 }, 20);
             }
             ws.sendDir = ()=>{
                 clearTimeout(tmrDir);
                 tmrDir = setTimeout(()=>{
-                    ws.ws.send(JSON.stringify({dir: car.dir}));
+                    ws.send(JSON.stringify({dir: car.dir}));
                 }, 20);
             }
-            
-            
-            // create buttons
+
+            // websocket server connection
+            let serverBtn = document.querySelector("#serverBtn");
+            serverBtn.addEventListener('click', e=>ws.connect());
+            ws.onConnected = (e)=>{
+                serverBtn.className = "connected";
+                serverBtn.disabled = true;
+            }
+            ws.onDisconnected = (e)=>{
+                serverBtn.className = '';
+                serverBtn.disabled = false;
+            }
+            if (!ws.connect())
+                infoLabel.show("Kunde inte ansluta till websocket server")
+
+            // create steering buttons
             let upBtn = new Btn("#upBtn", ()=>{car.forward();ws.sendSpeed()}, null, KeyCode.Up),
                 downBtn = new Btn("#downBtn", ()=>{car.reverse();ws.sendSpeed()}, null, KeyCode.Down),
                 leftBtn =  new Btn("#leftBtn", ()=>{car.left();ws.sendDir()}, null, KeyCode.Left),
                 rightBtn =  new Btn("#rightBtn", ()=>{car.right();ws.sendDir()}, null, KeyCode.Right);
-    
         </script>
     </body>
 </html>
