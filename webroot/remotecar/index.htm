@@ -111,6 +111,24 @@
                 downBtn = new Btn("#downBtn", ()=>{car.reverse();ws.sendSpeed()}, null, KeyCode.Down),
                 leftBtn =  new Btn("#leftBtn", ()=>{car.left();ws.sendDir()}, null, KeyCode.Left),
                 rightBtn =  new Btn("#rightBtn", ()=>{car.right();ws.sendDir()}, null, KeyCode.Right);
+            
+            // accelerometer
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', function (e) {
+                    let tiltLR = Math.round(e.gamma);
+                    let tiltFR = Math.round(e.beta);
+                    
+                    if (tiltLR < 50 || tiltLR > -50) {
+                        car.setDir(tiltLR);
+                        ws.sendDir();
+                    }
+                    if (tiltFR < 50 || tiltFR > -50) {
+                        car.setSpeed(tiltFR * -11);
+                        ws.sendSpeed();
+                    }
+                    
+                }, false);
+            }
         </script>
     </body>
 </html>

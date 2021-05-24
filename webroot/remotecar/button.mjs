@@ -16,8 +16,8 @@ class Btn {
         this.pressCallback = pressCallback;
         this.releaseCallback = releaseCallback;
         // lyssna efter mustryckningar
-        btnNode.addEventListener("mousedown", this.press.bind(this));
-        btnNode.addEventListener("mouseup", this.release.bind(this));
+        btnNode.addEventListener("pointerdown", this.press.bind(this));
+        btnNode.addEventListener("pointerup", this.release.bind(this));
 
         // lyssna på knapptryckningar
         if (keyCode) {
