@@ -28,6 +28,7 @@ class BluetoothUart {
         BluetoothUart.instance.log("GATT server connected (Bluetooth)");
     };
     _sendTmr = null;
+    _pendingCounter = 0;
 
     static async init(messenger) {
         let self = new BluetoothUart();
@@ -98,14 +99,21 @@ class BluetoothUart {
     }
     
     send(key, value) {
+        if (!this.rxCharacteristic) 
+            return;
         let cmdStr = key + value +'\n';
         let encoder = new TextEncoder('utf-8');
         let encStr = encoder.encode(cmdStr);
         // be gentle to mbit, we might drown it in commands
-        clearTimeout(this._sendTmr);
+        if (this._sendTmr) {
+            clearTimeout(this._sendTmr);
+            this._pendingCounter++;
+        }
         this._sendTmr = setTimeout(()=>{
             this.rxCharacteristic.writeValue(encStr);
-        }, 50);
+            this._sendTmr = null;
+            this._pendingCounter = 0;
+        }, this._pendingCounter < 5 ? 70 : 0);
         //console.log('Send:' + encStr)
     }
     
