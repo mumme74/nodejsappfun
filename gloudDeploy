@@ -1,0 +1,3 @@
+export REDISHOST=10.206.83.243
+gcloud beta run deploy chat --source .     --vpc-connector my-redis-vpc     --allow-unauthenticated     --timeout 3600     --service-account chat-identity --update-env-vars REDISHOST=$REDISHOST
+
