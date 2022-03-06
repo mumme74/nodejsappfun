@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat example</title>
+  <style>
+    @import url(common.css);
+    body { padding: 0.5rem;}
+    /* initially show/hide messgaes and send before we joined a chatroom */
+    #chatroom { display: none; }
+    body.joined > #chatroom { display: block; }
+    body.joined > #signinFrm { display: none; }
+    label {padding-right: 2rem;}
+  </style>
+</head>
+<body>
+  <span id="connectIcon" title="connected status"></span>
+  <form id="signinFrm">
+    <h1>Logga in!</h1>
+    <label>
+      Namn:
+      <input type="text" id="userName"/>
+    </label>
+    <label>
+      Chattrum:
+      <input type="text" id="chatRoom" placeholder="my-room"/>
+    </label>
+    <button id="joinBtn" type="submit">Gå med i chattrum</button>
+  </form>
+  <div id="chatroom">
+    <h1></h1>
+    <ul id="messages"></ul>
+      <form id="chatFrm">
+        <label>
+          Sänd:
+          <input type="text" autocomplete="off" id="chatMsg"/>
+        </label>
+        <button id="sendBtn" type="submit">Sänd</button>
+      </form>
+  </div>
+    <!-- [START cloudrun_websockets_client] -->
+  <!--<script src="https://cdn.socket.io/4.4.1/socket.io.min.js" integrity="sha384-fKnu0iswBIqkjxrhQCTZ7qlLHOFEgNkRmK2vaO/LbTZSXdJfAu6ewRBdwHPhBo/H" crossorigin="anonymous"></script>-->
+  <script src="https://chat-zl3usdsnka-lz.a.run.app/socket.io/socket.io.js"></script>
+  <!--<script src="/socket.io/socket.io.js"></script>-->
+    <!-- [END cloudrun_websockets_client] -->
+  <script type="application/javascript" src="chat.js"></script>
+</body>
+</html>

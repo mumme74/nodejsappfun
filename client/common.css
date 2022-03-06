@@ -1,0 +1,27 @@
+
+body, html {
+  margin: 0;
+  padding: 0;
+  background-color: azure;
+  color:#090927;
+  font-family:'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+}
+
+#connectIcon {
+  width: 2rem; height: 2rem; font-size: 2rem;
+  background-color:#faad91; color: red; padding:0.3rem 0.5rem;
+  border-radius: 0.3rem;
+  cursor: pointer;
+}
+#connectIcon::after { content: '✗';}
+body.connected > #connectIcon { background-color: #b8c2a7; color:green;}
+body.connected > #connectIcon::after { content: '✓'; }
+
+.notifier {
+  position: fixed;
+  top:0;
+  left:0;
+  width: 100%;
+  background-color: rgb(205, 195, 50);
+  padding:0.3rem;
+}
