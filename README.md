@@ -8,7 +8,7 @@ This is used in a educational course I teach at school.
 ## Så här använder du denna API för att koppla ihop websidor
 
 ### I webbsidans huvud lägger du till:
-```
+```html
 <script src="https://chat-zl3usdsnka-lz.a.run.app/socket.io/socket.io.js"></script>
 
 ```
@@ -16,8 +16,8 @@ Detta laddar ett script som används för att kommunicera med en appserver via w
 
 ### I ett script lägger du in:
 Antingen inbäddat i sidan eller i ett extent script kan du sedan använda dessa kodsnuttar:
-```
-const socket = io("wss://chat-zl3usdsnka-lz.a.run.app/", {transports: ['websocket]});
+```javascript
+const socket = io("wss://chat-zl3usdsnka-lz.a.run.app/", {transports: ['websocket']});
 ```
 Detta skapar ett objekt som använder för att få meddelanden och ta emot meddelanden från andra som är anslutna till samma rum.
 
@@ -26,7 +26,7 @@ Tänk konceptet chatrum. Du kan ansluta till olika chattrum, vill du tex skapa e
 Du kommer att vara ansluten upp till 1 timme. Därefter måste du ansluta igen.
 
 ### Info om anslutningen
-```
+```javascript
 socket.on('connect', ()=>{
   console.log('connected');
   // ... your own code to run when we are connected
@@ -35,7 +35,7 @@ socket.on('connect', ()=>{
 Denna händelse (event) anropas när vi är anslutna till seervern.
 
 
-```
+```javascript
 socket.on('disconnect', ()=>{
   console.log('disconnected');
   // ... your own code to run when we are disconnected
@@ -44,7 +44,7 @@ socket.on('disconnect', ()=>{
 Denna händelse anropas när vi anslutningen till server inte längre är uppkopplad. Tex när nätet går ned eller det har gått mer än 1 h.
 
 
-```
+```javascript
 socket.on('reconnect', ()=>{
   console.log('reconnected');
   // ... your own code to run when we are reconnected
@@ -54,7 +54,7 @@ Denna händelse anropas när vi återigen ansluts till servern.
 
 
 ## Anslutning till ett rum
-```
+```javascript
 socket.emit('signin', {user, room}, (error, history)=>{
   console.log('signin happend or a error');
   // your own code here
@@ -64,7 +64,7 @@ Så här gör du för att ansluta till ett rum.
 
 
 Denna händelse händer när andra ansluter till samma rum
-```
+```javascript
 socket.on('notification', ({title, description})=>{
   console.log('notification');
   // ... your own code to run when we are disconnected
@@ -84,7 +84,7 @@ Det finns 2 olika typer av information som kan skickas till servern.
 
 
 ### Sända ett meddelande
-```
+```javascript
 socket.emit('sendMessage', messageStr, (error)=>{
   console.log("sendMessage happened or a error");
   // your own code here
@@ -92,7 +92,7 @@ socket.emit('sendMessage', messageStr, (error)=>{
 ```
 
 ### Ta emot ett meddelande
-```
+```javascript
 socket.on('message', ({user, text}))=>{
   console.log("message recieved from others");
   // your own code here
@@ -103,7 +103,7 @@ Denna händelse anropas när en annan användare säner ett meddelande
 
 
 ### Sända data
-```
+```javascript
 const dataAsStr = JSON.stringify(data);
 socket.emit('sendData', dataAsStr, (error)=>{
   console.log("sendData happened or a error");
@@ -112,7 +112,7 @@ socket.emit('sendData', dataAsStr, (error)=>{
 ```
 
 ### Ta emot ett meddelande
-```
+```javascript
 socket.on('data', ({user, dataAsStr}))=>{
   console.log("data recieved from others");
   const data = JSON.parse(dataAsStr);
