@@ -1,4 +1,4 @@
-const http = require('http').createServer(handler);
+const http = require('https');
 const fs = require('fs'); //require filesystem module
 const url = require('url');
 const path = require('path');
@@ -8,9 +8,20 @@ const runner = require('./runnerremote');
 const robotarm = require('./robotarm');
 //const stream = require('./stream'); 
 
+const options = {
+  key: fs.readFileSync('./tls/server.key'),
+  cert: fs.readFileSync('./tls/server.crt'),
+  ca: fs.readFileSync("./tls/rootCA.crt")
+};
 
-http.listen(8080); //listen to port 8080
-console.log("serving on http://localhost:8080");
+
+let server = http.createServer(options, handler);
+server.addListener('upgrade', (req, res, head)=> {
+    console.log('UPGRADE:', req.url);
+});
+server.on('error', (err) => console.error(err));
+server.listen(8080); //listen to port 8080
+console.log("serving on https://localhost:8080");
 
 function errNotFound(err, res) {
   console.log(err);
@@ -53,7 +64,7 @@ console.log(p);
   })
 }
 
-const wsServer = new WebSocketServer({ httpServer: http });
+const wsServer = new WebSocketServer({ httpServer: server });
 
 wsServer.on('request', function(request) {
     var origin = request.origin + request.resource;

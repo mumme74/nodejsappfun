@@ -69,6 +69,34 @@
 
             // skapa en messager
             var infoLabel = new Messenger();
+            var connectedHost = null;
+            var connectedToHost = (host)=>{
+                connectedHost = host;
+                const header = document.querySelector("header");
+                const name = host ? host : "";
+                header.innerText = `Fjärrstyr ${name} fordon`;
+                if (!host)
+                    ws.send(JSON.stringify({request:"listHosts"}));
+                    
+            }
+            
+            function selectHost(available) {
+                const div = document.createElement('div');
+                div.innerHTML = "<h1>Välj host<h1>";
+                document.body.prepend(div);
+                
+                for (const host of available) {
+                    const d = document.createElement('div');
+                    const input = document.createElement('input');
+                    input.type = 'button';
+                    input.value = host;
+                    input.addEventListener('click', evt=>{
+                        ws.send(JSON.stringify({request:"connectToHost", host}));
+                        document.body.removeChild(div);
+                    });
+                    div.append(input);
+                }
+            }
 
             // sätta upp websocket connection
             let tmrSp, tmrDir;
@@ -77,6 +105,13 @@
                     car.setSpeed(vlu);
                 else if (key === 'dir')
                     car.setDir(vlu);
+                else if (key === 'hosts')
+                    selectHost(vlu);
+                else if (key === 'connectedTo')
+                    connectedToHost(vlu);
+                else if (key === 'hangUp')
+                    connectedToHost(null);
+                    
             }, infoLabel, user);
 
             ws.sendSpeed = ()=>{
@@ -91,6 +126,10 @@
                     ws.send(JSON.stringify({dir: car.dir}));
                 }, 20);
             }
+            
+            const listHosts = async () => {
+                
+            }
 
             // websocket server connection
             let serverBtn = document.querySelector("#serverBtn");
@@ -98,6 +137,7 @@
             ws.onConnected = (e)=>{
                 serverBtn.className = "connected";
                 serverBtn.disabled = true;
+                ws.send(JSON.stringify({request:"listHosts"}));
             }
             ws.onDisconnected = (e)=>{
                 serverBtn.className = '';

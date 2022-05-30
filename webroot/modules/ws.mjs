@@ -61,7 +61,7 @@ class WS {
             this.messenger.show(json.name + " styr just nu.")
             
             for (let key in json) {
-                if (!isNaN(json[key]))
+                //if (!isNaN(json[key]))
                     this.callback(key, json[key]);
             }
         }

@@ -2,6 +2,7 @@ export {car, obstacle};
 
 const svgWidth = 400,
       svgHeight = 500;
+const maxThrow = 1023;
       
 class Car {
     carNode = null;
@@ -45,7 +46,7 @@ class Car {
     }
     
     setSpeed(vlu) {
-        vlu = Math.max(Math.min(vlu, 511), -511);
+        vlu = Math.max(Math.min(vlu, maxThrow), -maxThrow);
         if (this.speed !== vlu) {
             this.speed = vlu;
             this._update();
@@ -59,7 +60,7 @@ class Car {
     reverse() { this.setSpeed(this.speed -10); }
     
     _update(){
-        let speed = Math.round(this.speed / 5.11, 0);
+        let speed = Math.round(this.speed / (maxThrow / 100), 0);
         let dir = Math.round(this.dir * 1.8, 0);
         this.textNode.textContent = 'speed:' + speed + '% dir:' + dir + 'deg';
         
@@ -69,7 +70,7 @@ class Car {
         
         // prevent turn from dragging speed bar
         let factor = (100 - (this.dir < 0 ? -this.dir : this.dir)) / 100;
-        let y2 = Math.round(this.speed / 2, 0) * factor;
+        let y2 = Math.round(this.speed / ((maxThrow / svgHeight)*2), 0) * factor;
         // move speed bar
         this.vectorSpeedNode.y2.baseVal.value = this.vectorSpeedNode.y1.baseVal.value  - y2;
     }

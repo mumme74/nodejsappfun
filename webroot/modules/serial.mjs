@@ -35,11 +35,11 @@ class Serial {
             port.addEventListener('disconnect', self.ondisconnected)
 
             const encoder = new TextEncoderStream();
-            outputDone = encoder.readable.pipeTo(port.writable);
+            let outputDone = encoder.readable.pipeTo(port.writable);
             this.outputStream = encoder.writable;
 
             this.initialized = outputDone && this.outputStream;
-            BluetoothUart.onInitialized();
+            Serial.onInitialized();
             
         } else
             self.log("Web Serial är inte aktiverat. Måste aktiveras först");

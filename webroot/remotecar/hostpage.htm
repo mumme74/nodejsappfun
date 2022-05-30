@@ -113,6 +113,7 @@
             ws.onConnected = (e)=>{
                 serverBtn.className = "connected";
                 serverBtn.disabled = true;
+                ws.send(JSON.stringify({request:"setAsHost"}));
             }
             ws.onDisconnected = (e)=>{
                 serverBtn.className = '';

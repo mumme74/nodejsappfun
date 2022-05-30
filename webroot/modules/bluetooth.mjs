@@ -19,6 +19,7 @@ class BluetoothUart {
     static instance;
     rxCharacteristic = null;
     txCharacteristic = null;
+    _sendBuf = [];
     static rxCallback = () => {};
     static onInitialized = () => {};
     static onDisconnected = (event) => {
@@ -104,16 +105,27 @@ class BluetoothUart {
         let cmdStr = key + value +'\n';
         let encoder = new TextEncoder('utf-8');
         let encStr = encoder.encode(cmdStr);
+        this._sendBuf.push(encStr);
+        const _send = async ()=>{
+          while(this._sendBuf.length) {
+            await this.rxCharacteristic.writeValue(
+                this._sendBuf.shift());
+          }
+        }
+        if (this._sendBuf.length===1)
+          _send();
+        
         // be gentle to mbit, we might drown it in commands
-        if (this._sendTmr) {
+        /*if (this._sendTmr) {
             clearTimeout(this._sendTmr);
             this._pendingCounter++;
         }
-        this._sendTmr = setTimeout(()=>{
-            this.rxCharacteristic.writeValue(encStr);
+        
+        this._sendTmr = setTimeout(async ()=>{
+            await this.rxCharacteristic.writeValue(encStr);
             this._sendTmr = null;
             this._pendingCounter = 0;
-        }, this._pendingCounter < 5 ? 70 : 0);
+        }, this._pendingCounter < 5 ? 70 : 0);*/
         //console.log('Send:' + encStr)
     }
     
