@@ -108,8 +108,13 @@ class BluetoothUart {
         this._sendBuf.push(encStr);
         const _send = async ()=>{
           while(this._sendBuf.length) {
-            await this.rxCharacteristic.writeValue(
-                this._sendBuf.shift());
+            const buf = this._sendBuf.shift();
+            try {
+              await this.rxCharacteristic.writeValue(buf);
+            } catch(e) {
+              if (e.message !== 'GATT operation already in progress.')
+                console.warn(e);
+            }
           }
         }
         if (this._sendBuf.length===1)
