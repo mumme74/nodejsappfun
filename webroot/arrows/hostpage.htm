@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="sv">
+    <head>
+        <title>Arrows</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <style>
+            html, body{ font-family: sans-serif; }
+            header {
+                font-size: 20pt; color: white; background-color: #444a33;
+                width: 402px; text-align: center;
+            }
+            header > input { font-size: 16pt; float: left; }
+            #car { transform-box: fill-box; transform-origin: center;}
+            /* steering buttons */
+            button {
+                font-size:100pt; background-color:Transparent; outline:none;
+                border: none; opacity:0.2; position:absolute;
+            }
+            button:hover { opacity: 0.8; }
+            #leftBtn { top: 140px; left:0px; }
+            #leftUpBtn { top: 80px; left:30px; }
+            #rightUpBtn { top: 80px; left: 230px;}
+            #rightBtn { top: 140px; left:250px;}
+            #leftDownBtn { top: 210px; left: 30px;}
+            #rightDownBtn { top: 210px; left: 230px;}
+            #upBtn { top: 60px; left:160px; }
+            #downBtn {top: 230px; left:160px; }
+
+            /* microbit connection */
+            #microbitDiv { padding: 10px; width: 382px; background-color: red; }
+            #microbitDiv:after { content: "Ej ansluten till micro:bit"; }
+            #microbitDiv.connected { background-color: green;}
+            #microbitDiv.connected:after { content: "Ansluten till micro:bit";}
+
+            /* websocket button */
+            #serverBtn {background-color: red; border:1px solid gray; }
+            #serverBtn.connected { background-color: green; }
+        </style>
+    </head>
+    <body>
+        <header>
+            Styr pilar
+        </header>
+        <section>
+            <div id='microbitDiv'>
+            <select id="connectionType">
+                <option value="BLE" selected>Bluetooth</option>
+                <option value="serial">Serial USB</option>
+            </select>
+            <input type="button" value="micro:bit"/>
+            </div>
+            <svg width="400" height="320" style="border:1px solid black;">
+                <text id="svgText" x="5" y="15"></text>
+            </svg>
+
+            <button id="upBtn">&uarr;</button>
+            <button id="leftUpBtn">&nwarr;</button>
+            <button id="rightUpBtn">&nearr;</button>
+            <button id="leftBtn">&larr;</button>
+            <button id="rightBtn">&rarr;</button>
+            <button id="downBtn">&darr;</button>
+            <button id="leftDownBtn">&swarr;</button>
+            <button id="rightDownBtn">&searr;</button>
+        </section>
+        <section>
+            <textarea id="loggerSent" readonly style="height:10rem;width:400px;"></textarea><br>
+            <input id="textCommand" type="text" placeholder="Send commands" style="width:300px;">
+            <button id="sendButton" style="width:90px;font-size:1rem;border:1px solid gray;margin:0 0.5rem">Sänd till kretskort</button>
+        </section>
+        <script type="module">
+            import {user} from '../modules/user.mjs';
+            import {Messenger} from '../modules/messenger.mjs';
+            import {Serial} from '../modules/serial.mjs';
+            import {BluetoothUart} from '../modules/bluetooth.mjs';
+            import {Arrows} from './arrows.mjs';
+
+            // skapa en arrow instans
+            let arrows = new Arrows({
+                north:"#upBtn",northEast:"#rightUpBtn",
+                east:"#rightBtn", southEast:"#rightDownBtn",
+                south:"#downBtn", southWest:"#leftDownBtn",
+                west:"#leftBtn", northWest:"#leftUpBtn",
+                loggerId:"#loggerSent",sendBoxId:"#textCommand",
+                sendBtnId:"#sendButton"
+            });
+
+            // skapa en messager
+            var infoLabel = new Messenger();
+
+            // initialize bluetooth/serial
+            let initBtn = document.querySelector("input[value='micro:bit']");
+            initBtn.addEventListener('click', async () => {
+                let conType = document.querySelector("#connectionType");
+                let obj;
+                if (conType.value === 'serial') {
+                    obj = Serial;
+                } else if (conType.value === 'BLE') {
+                    obj = BluetoothUart;
+                }
+
+                // helper function, tells user we are connected to micro:bit
+                function conn(isConnected) {
+                    document.querySelector("#microbitDiv").className = isConnected ? "connected": "";
+                    initBtn.disabled = isConnected;
+                    conType.disabled = isConnected;
+                    arrows.setConnection(isConnected ? obj.instance : null);
+                }
+
+                // set up connection events
+                obj.onDisconnected = e=> {
+                    conn(false);
+                    obj.reset();
+                }
+
+                obj.rxCallback = (str) => {
+                    arrows.onRecieve(str);
+                    console.log(str);
+                }
+
+                // init connection
+                let res = await obj.init(infoLabel);
+                conn(res);
+            });
+        </script>
+    </body>
+</html>
